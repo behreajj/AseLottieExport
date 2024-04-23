@@ -404,6 +404,16 @@ dlg:button {
             return
         end
 
+        -- Set tool to hand to prevent any issues with slice tool context bar
+        -- UI or with uncommitted selection mask transformations.
+        local appTool <const> = app.tool
+        if appTool then
+            local toolName <const> = appTool.id
+            if toolName == "slice" then
+                app.tool = "hand"
+            end
+        end
+
         -- Unpack sprite spec.
         local spriteSpec <const> = activeSprite.spec
         local wSprite <const> = spriteSpec.width
