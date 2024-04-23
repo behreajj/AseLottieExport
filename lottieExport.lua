@@ -6,7 +6,7 @@ local defaults <const> = {
     -- TODO: Allow option to link to raster images?
     -- TODO: Is option to embed raster images as base 64 encoded possible?
     frameTarget = "ALL",
-    fps = 24,
+    fps = 12,
     scale = 1,
     usePixelAspect = true,
     rounding = 0
