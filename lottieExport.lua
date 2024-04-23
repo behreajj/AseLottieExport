@@ -1,4 +1,10 @@
+local frameTargets <const> = { "ACTIVE", "ALL", "TAG" }
+
 local defaults <const> = {
+    -- TODO: Allow use to set a background layer with a solid color?
+    -- TODO: Allow padding between pixels?
+    -- TODO: Base rounding on a pecentage, as with SVG?
+    frameTarget = "ALL",
     fps = 24,
     scale = 1,
     usePixelAspect = true,
@@ -244,7 +250,77 @@ local function imgToLotStr(img, palette, wPixel, hPixel, rounding)
     return shapeGroupsArr, hexArr, idcsArr
 end
 
+---@param tag Tag
+---@return integer[]
+local function tagToFrIdcs(tag)
+    local destFrObj <const> = tag.toFrame
+    if not destFrObj then return {} end
+
+    local origFrObj <const> = tag.fromFrame
+    if not origFrObj then return {} end
+
+    local origIdx <const> = origFrObj.frameNumber
+    local destIdx <const> = destFrObj.frameNumber
+    if origIdx == destIdx then return { destIdx } end
+
+    ---@type integer[]
+    local arr <const> = {}
+    local idxArr = 0
+    local aniDir <const> = tag.aniDir
+    if aniDir == AniDir.REVERSE then
+        local j = destIdx + 1
+        while j > origIdx do
+            j = j - 1
+            idxArr = idxArr + 1
+            arr[idxArr] = j
+        end
+    elseif aniDir == AniDir.PING_PONG then
+        local j = origIdx - 1
+        while j < destIdx do
+            j = j + 1
+            idxArr = idxArr + 1
+            arr[idxArr] = j
+        end
+        local op1 <const> = origIdx + 1
+        while j > op1 do
+            j = j - 1
+            idxArr = idxArr + 1
+            arr[idxArr] = j
+        end
+    elseif aniDir == AniDir.PING_PONG_REVERSE then
+        local j = destIdx + 1
+        while j > origIdx do
+            j = j - 1
+            idxArr = idxArr + 1
+            arr[idxArr] = j
+        end
+        local dn1 <const> = destIdx - 1
+        while j < dn1 do
+            j = j + 1
+            idxArr = idxArr + 1
+            arr[idxArr] = j
+        end
+    else
+        -- Default to AniDir.FORWARD
+        local j = origIdx - 1
+        while j < destIdx do
+            j = j + 1
+            idxArr = idxArr + 1
+            arr[idxArr] = j
+        end
+    end
+
+    return arr
+end
+
 local dlg <const> = Dialog { title = "Lottie Export" }
+
+dlg:combobox {
+    id = "frameTarget",
+    label = "Frames:",
+    option = defaults.frameTarget,
+    options = frameTargets
+}
 
 dlg:newrow { always = false }
 
@@ -337,10 +413,48 @@ dlg:button {
         local colorSpace <const> = spriteSpec.colorSpace
 
         -- Unpack arguments.
+        local frameTarget <const> = args.frameTarget or defaults.frameTarget --[[@as string]]
         local fps <const> = args.fps or defaults.fps --[[@as integer]]
         local scale <const> = args.scale or defaults.scale --[[@as integer]]
         local rounding <const> = args.rounding or defaults.rounding --[[@as integer]]
         local usePixelAspect <const> = args.usePixelAspect --[[@as boolean]]
+
+        local spriteFrObjs <const> = activeSprite.frames
+        local lenSpriteFrObjs <const> = #spriteFrObjs
+
+        ---@type integer[]
+        local chosenFrames = {}
+        if frameTarget == "TAG" then
+            local activeTag <const> = app.tag
+            if activeTag then
+                chosenFrames = tagToFrIdcs(activeTag)
+            else
+                -- Default to all.
+                local h = 0
+                while h < lenSpriteFrObjs do
+                    h = h + 1
+                    chosenFrames[h] = h
+                end
+            end
+        elseif frameTarget == "ACTIVE" then
+            local activeFrObj <const> = app.frame or spriteFrObjs[1]
+            chosenFrames = { activeFrObj.frameNumber }
+        else
+            local h = 0
+            while h < lenSpriteFrObjs do
+                h = h + 1
+                chosenFrames[h] = h
+            end
+        end
+        local lenChosenFrames <const> = #chosenFrames
+
+        if lenChosenFrames <= 0 then
+            app.alert { title = "Error", text = "No frames selected." }
+            return
+        end
+
+        local firstFrame <const> = 0
+        local lastFrame <const> = math.max(1, lenChosenFrames - 1)
 
         -- Cache methods used in loops.
         local strfmt <const> = string.format
@@ -366,18 +480,14 @@ dlg:button {
         ---@type string[]
         local layerStrsArr <const> = {}
 
-        local spriteFrObjs <const> = activeSprite.frames
-        local lenSpriteFrObjs <const> = #spriteFrObjs
-        local firstFrame <const> = 0
-        local lastFrame <const> = math.max(1, lenSpriteFrObjs - 1)
         local palette <const> = activeSprite.palettes[1]
 
         local i = 0
-        while i < lenSpriteFrObjs do
+        while i < lenChosenFrames do
             i = i + 1
-            local frObj <const> = spriteFrObjs[i]
+            local frIdx <const> = chosenFrames[i]
             local flat <const> = Image(spriteSpec)
-            flat:drawSprite(activeSprite, frObj)
+            flat:drawSprite(activeSprite, frIdx)
             local aabb <const> = flat:shrinkBounds(alphaIndex)
             if aabb.width > 0 and aabb.height > 0 then
                 local xtlCel <const> = aabb.x
@@ -394,8 +504,6 @@ dlg:button {
                 trimSpec.colorSpace = colorSpace
                 local trim <const> = Image(trimSpec)
                 trim:drawImage(flat, Point(-xtlCel, -ytlCel), 255, BlendMode.SRC)
-
-                local frIdx <const> = frObj.frameNumber - 1
 
                 local shapeStrArr <const>, _ <const>, _ <const> = imgToLotStr(
                     trim, palette, wPixel, hPixel, rounding)
@@ -417,8 +525,8 @@ dlg:button {
                 local layerStr <const> = string.format(
                     contentLayerTopFormat,
                     0,
-                    frIdx, frIdx + 1,
-                    string.format("Frame %d", frIdx),
+                    i - 1, i,
+                    string.format("Frame %d", frIdx - 1),
                     "false",
                     0,
                     transformStr,
