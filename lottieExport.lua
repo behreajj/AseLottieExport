@@ -82,7 +82,6 @@ local shapeFillFormat <const> = table.concat({
 
 local shapeTransformFormat <const> = table.concat({
     "{\"ty\":\"tr\"",                    -- Type
-    -- "\"r\":{\"a\":0,\"k\":0}",        -- Rotation
     "\"a\":{\"a\":0,\"k\":[%.1f,%.1f]}", -- Anchor
     "\"p\":{\"a\":0,\"k\":[%.1f,%.1f]}", -- Position
     "\"o\":{\"a\":0,\"k\":%d}}",         -- Opacity
