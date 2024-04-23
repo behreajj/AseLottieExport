@@ -361,7 +361,7 @@ dlg:newrow { always = false }
 dlg:check {
     id = "usePixelAspect",
     label = "Apply:",
-    text = "Pi&xel Aspect",
+    text = "Pixel Aspect",
     selected = defaults.usePixelAspect
 }
 
