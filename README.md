@@ -10,6 +10,8 @@ Each frame selected for export is held in a lottie shape layer. The frame contai
 
 Due to this structure, exported sprites can yield massive lottie files. It is recommended to only use this export for small sprites -- in terms of dimensions, unique colors and/or frames.
 
+Lottie supports raster images and image layers, but this exporter does not currently support the featue. See the modification section below for where to find the Lottie docs.
+
 ## Download
 
 To download this script, click on the green Code button above, then select Download Zip. You can also click on the `lottieExport.lua` file. Beware that some browsers will append a `.txt` file format extension to script files on download. Aseprite will not recognize the script until this is removed and the original `.lua` extension is used. There can also be issues with copying and pasting. Be sure to click on the Raw file button. Do not copy the formatted code.
