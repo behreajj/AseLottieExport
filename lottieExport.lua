@@ -36,8 +36,8 @@ local transformFormat <const> = table.concat({
 local contentLayerTopFormat <const> = table.concat({
     "{\"ty\":4",        -- Type (2: raster, 3: group, 4: shape)
     "\"ind\":%d",       -- Index (starting at 0)
-    "\"ip\":%d",        -- First frame
-    "\"op\":%d",        -- Last frame
+    "\"ip\":%d",        -- From frame
+    "\"op\":%d",        -- To frame
     "\"st\":0",         -- Start time
     "\"nm\":\"%s\"",    -- Name
     "\"hd\":%s",        -- Is hidden (boolean)
@@ -453,6 +453,21 @@ dlg:button {
             return
         end
 
+        local frUiOffset = 1
+        local appPrefs <const> = app.preferences
+        if appPrefs then
+            local docPrefs <const> = appPrefs.document(activeSprite)
+            if docPrefs then
+                local tlPrefs <const> = docPrefs.timeline
+                if tlPrefs then
+                    local fruiPref <const> = tlPrefs.first_frame
+                    if fruiPref then
+                        frUiOffset = fruiPref --[[@as integer]]
+                    end
+                end
+            end
+        end
+
         local firstFrame <const> = 0
         local lastFrame <const> = math.max(1, lenChosenFrames - 1)
 
@@ -517,20 +532,19 @@ dlg:button {
                 local yAnchor <const> = hScl * 0.5
                 local xPos <const> = xtlScl + wScl * 0.5
                 local yPos <const> = ytlScl + hScl * 0.5
-                local transformStr = string.format(
-                    transformFormat,
+                local transformStr = strfmt(transformFormat,
                     xAnchor, yAnchor,
                     xPos, yPos, 100)
 
-                local layerStr <const> = string.format(
-                    contentLayerTopFormat,
-                    0,
-                    i - 1, i,
-                    string.format("Frame %d", frIdx - 1),
-                    "false",
-                    0,
+                local layerName = strfmt("Frame %d", frUiOffset + frIdx - 1)
+                local layerStr <const> = strfmt(contentLayerTopFormat,
+                    i - 1,    -- Index
+                    i - 1, i, -- From, To frame
+                    layerName,
+                    "false",  -- Is hidden
+                    0,        -- Blend mode
                     transformStr,
-                    table.concat(shapeStrArr, ","))
+                    tconcat(shapeStrArr, ","))
 
                 layerStrsArr[#layerStrsArr + 1] = layerStr
             end
