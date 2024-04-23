@@ -1,9 +1,10 @@
 local frameTargets <const> = { "ACTIVE", "ALL", "TAG" }
 
 local defaults <const> = {
-    -- TODO: Allow use to set a background layer with a solid color?
     -- TODO: Allow padding between pixels?
     -- TODO: Base rounding on a pecentage, as with SVG?
+    -- TODO: Allow option to link to raster images?
+    -- TODO: Is option to embed raster images as base 64 encoded possible?
     frameTarget = "ALL",
     fps = 24,
     scale = 1,
@@ -33,8 +34,21 @@ local transformFormat <const> = table.concat({
     "\"o\":{\"a\":0,\"k\":%d}}",         -- Opacity
 }, ",")
 
-local contentLayerTopFormat <const> = table.concat({
-    "{\"ty\":4",        -- Type (2: raster, 3: group, 4: shape)
+local layerFillFormat <const> = table.concat({
+    "{\"ty\":1",        -- Type (1: solid color)
+    "\"ind\":%d",       -- Index (starting at 0)
+    "\"ip\":%d",        -- From frame
+    "\"op\":%d",        -- To frame
+    "\"st\":0",         -- Start time
+    "\"nm\":\"%s\"",    -- Name
+    "\"ks\":{}",        -- Transform
+    "\"sc\":\"#%06x\"", -- Color as web hex
+    "\"sw\":%d",        -- Height
+    "\"sh\":%d}"        -- Width
+}, ",")
+
+local layerShapeFormat <const> = table.concat({
+    "{\"ty\":4",        -- Type (4: shape)
     "\"ind\":%d",       -- Index (starting at 0)
     "\"ip\":%d",        -- From frame
     "\"op\":%d",        -- To frame
@@ -46,29 +60,29 @@ local contentLayerTopFormat <const> = table.concat({
     "\"shapes\":[%s]}", -- Shapes
 }, ",")
 
-local rectFormat <const> = table.concat({
-    "{\"ty\":\"rc\"",                    -- Type
-    "\"p\":{\"a\":0,\"k\":[%.1f,%.1f]}", -- Center
-    "\"s\":{\"a\":0,\"k\":[%d,%d]}",     -- Size
-    "\"r\":{\"a\":0,\"k\":%d}}",         -- Rounding
-}, ",")
-
 local shapeGroupFormat <const> = table.concat({
     "{\"ty\":\"gr\"", -- Type
     "\"nm\":\"%s\"",  -- Name
     "\"it\":[%s]}"    -- Sub shapes
 }, ",")
 
+local shapeRectFormat <const> = table.concat({
+    "{\"ty\":\"rc\"",                    -- Type
+    "\"p\":{\"a\":0,\"k\":[%.1f,%.1f]}", -- Center
+    "\"s\":{\"a\":0,\"k\":[%d,%d]}",     -- Size
+    "\"r\":{\"a\":0,\"k\":%d}}",         -- Rounding
+}, ",")
+
 local shapeFillFormat <const> = table.concat({
-    "{\"ty\":\"fl\"",                         -- Type, 'fl' is fill
+    "{\"ty\":\"fl\"",                         -- Type
     "\"o\":{\"a\":0,\"k\":%d}",               -- Opacity in 0 to 100
     "\"c\":{\"a\":0,\"k\":[%.6f,%.6f,%.6f]}", -- RGB color in 0.0 to 1.0
     "\"r\":1}"                                -- Fill rule (1 nonzero,2 evenod)
 }, ",")
 
 local shapeTransformFormat <const> = table.concat({
-    "{\"ty\":\"tr\"",                    -- Type, 'tr' is transform
-    "\"r\":{\"a\":0,\"k\":0}",           -- Rotation
+    "{\"ty\":\"tr\"",                    -- Type
+    -- "\"r\":{\"a\":0,\"k\":0}",        -- Rotation
     "\"a\":{\"a\":0,\"k\":[%.1f,%.1f]}", -- Anchor
     "\"p\":{\"a\":0,\"k\":[%.1f,%.1f]}", -- Position
     "\"o\":{\"a\":0,\"k\":%d}}",         -- Opacity
@@ -205,7 +219,7 @@ local function imgToLotStr(img, palette, wPixel, hPixel, rounding)
             local xScaled <const> = x * wPixel
             local yScaled <const> = y * hPixel
 
-            subShapesArr[#subShapesArr + 1] = strfmt(rectFormat,
+            subShapesArr[#subShapesArr + 1] = strfmt(shapeRectFormat,
                 xScaled + wPixel * 0.5,
                 yScaled + hPixel * 0.5,
                 wPixel, hPixel, rounding)
@@ -363,6 +377,14 @@ dlg:slider {
 
 dlg:newrow { always = false }
 
+dlg:color {
+    id = "bkgColor",
+    label = "Bkg:",
+    color = Color { r = 0, g = 0, b = 0, a = 0 }
+}
+
+dlg:newrow { always = false }
+
 dlg:file {
     id = "filepath",
     label = "Path:",
@@ -423,11 +445,16 @@ dlg:button {
         local colorSpace <const> = spriteSpec.colorSpace
 
         -- Unpack arguments.
-        local frameTarget <const> = args.frameTarget or defaults.frameTarget --[[@as string]]
-        local fps <const> = args.fps or defaults.fps --[[@as integer]]
-        local scale <const> = args.scale or defaults.scale --[[@as integer]]
-        local rounding <const> = args.rounding or defaults.rounding --[[@as integer]]
+        local frameTarget <const> = args.frameTarget
+            or defaults.frameTarget --[[@as string]]
+        local fps <const> = args.fps
+            or defaults.fps --[[@as integer]]
+        local scale <const> = args.scale
+            or defaults.scale --[[@as integer]]
+        local rounding <const> = args.rounding
+            or defaults.rounding --[[@as integer]]
         local usePixelAspect <const> = args.usePixelAspect --[[@as boolean]]
+        local bkgColor <const> = args.bkgColor --[[@as Color]]
 
         local spriteFrObjs <const> = activeSprite.frames
         local lenSpriteFrObjs <const> = #spriteFrObjs
@@ -478,8 +505,9 @@ dlg:button {
             end
         end
 
+        -- Last frame is inclusive of the right edge of the last frame.
         local firstFrame <const> = 0
-        local lastFrame <const> = math.max(1, lenChosenFrames - 1)
+        local lastFrame <const> = lenChosenFrames
 
         -- Cache methods used in loops.
         local strfmt <const> = string.format
@@ -506,6 +534,8 @@ dlg:button {
         local layerStrsArr <const> = {}
 
         local palette <const> = activeSprite.palettes[1]
+
+        local bkgIdxOffset <const> = bkgColor.alpha > 0 and 1 or 0
 
         local i = 0
         while i < lenChosenFrames do
@@ -547,17 +577,31 @@ dlg:button {
                     xPos, yPos, 100)
 
                 local layerName = strfmt("Frame %d", frUiOffset + frIdx - 1)
-                local layerStr <const> = strfmt(contentLayerTopFormat,
-                    i - 1,    -- Index
+                local layerStr <const> = strfmt(layerShapeFormat,
+                    bkgIdxOffset + lenChosenFrames - i,
                     i - 1, i, -- From, To frame
                     layerName,
                     "false",  -- Is hidden
-                    0,        -- Blend mode
+                    0,        -- Blend mode (0 is normal)
                     transformStr,
                     tconcat(shapeStrArr, ","))
 
                 layerStrsArr[#layerStrsArr + 1] = layerStr
             end
+        end
+
+        if bkgColor.alpha > 0 then
+            local bkgWebHex <const> = bkgColor.red << 0x10
+                | bkgColor.green << 0x08
+                | bkgColor.blue
+            local bkgStr <const> = strfmt(layerFillFormat,
+                0,
+                firstFrame, lastFrame,
+                "Background",
+                bkgWebHex,
+                wSpriteScaled,
+                hSpriteScaled)
+            layerStrsArr[#layerStrsArr + 1] = bkgStr
         end
 
         local lotStr <const> = strfmt(
