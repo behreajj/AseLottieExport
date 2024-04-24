@@ -76,7 +76,7 @@ local shapeRectFormat <const> = table.concat({
 local shapeFillFormat <const> = table.concat({
     "{\"ty\":\"fl\"",                         -- Type
     "\"o\":{\"a\":0,\"k\":%d}",               -- Opacity in 0 to 100
-    "\"c\":{\"a\":0,\"k\":[%.6f,%.6f,%.6f]}", -- RGB color in 0.0 to 1.0
+    "\"c\":{\"a\":0,\"k\":[%.4f,%.4f,%.4f]}", -- RGB color in 0.0 to 1.0
     "\"r\":1}"                                -- Fill rule (1 nonzero,2 evenod)
 }, ",")
 
