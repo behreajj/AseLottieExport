@@ -32,7 +32,6 @@ local transformFormat <const> = table.concat({
 
 local layerFillFormat <const> = table.concat({
     "{\"ty\":1",        -- Type (1: solid color)
-    "\"ind\":%d",       -- Index (starting at 0)
     "\"ip\":%d",        -- From frame
     "\"op\":%d",        -- To frame
     "\"st\":0",         -- Start time
@@ -45,7 +44,6 @@ local layerFillFormat <const> = table.concat({
 
 local flatShapeFormat <const> = table.concat({
     "{\"ty\":4",        -- Type (4: shape)
-    "\"ind\":%d",       -- Index (starting at 0)
     "\"ip\":%d",        -- From frame
     "\"op\":%d",        -- To frame
     "\"st\":0",         -- Start time
@@ -534,8 +532,6 @@ dlg:button {
 
         local palette <const> = activeSprite.palettes[1]
 
-        local bkgIdxOffset <const> = bkgColor.alpha > 0 and 1 or 0
-
         local i = 0
         while i < lenChosenFrames do
             i = i + 1
@@ -577,7 +573,6 @@ dlg:button {
 
                 local layerName = strfmt("Fr %d", frUiOffset + frIdx - 1)
                 local layerStr <const> = strfmt(flatShapeFormat,
-                    bkgIdxOffset + lenChosenFrames - i,
                     i - 1, i, -- From, To frame
                     layerName,
                     transformStr,
@@ -592,7 +587,6 @@ dlg:button {
                 | bkgColor.green << 0x08
                 | bkgColor.blue
             local bkgStr <const> = strfmt(layerFillFormat,
-                0,
                 firstFrame, lastFrame,
                 "Background",
                 bkgWebHex,
