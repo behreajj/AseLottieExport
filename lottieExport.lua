@@ -622,7 +622,18 @@ dlg:button {
             return
         end
 
-        app.alert { title = "Success", text = "File exported." }
+        if colorSpace ~= ColorSpace { sRGB = true }
+            and colorSpace ~= ColorSpace() then
+            app.alert {
+                title = "Warning",
+                text = {
+                    "Lotties do not contain color profiles.",
+                    "Export colors may differ from original."
+                }
+            }
+        else
+            app.alert { title = "Success", text = "File exported." }
+        end
     end
 }
 
