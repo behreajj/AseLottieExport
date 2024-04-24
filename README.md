@@ -4,9 +4,11 @@
 
 ![Screen Cap 1](screenCap1.png)
 
-This an [Aseprite](https://www.aseprite.org/) extension to export sprites to the [lottie](https://lottiefiles.com/) file format. Aseprite is an "animated sprite editor and pixel art tool." Lottie is a file format for animated vector graphics based on [JSON](https://en.wikipedia.org/wiki/JSON).
+This an [Aseprite](https://www.aseprite.org/) script to export sprites to the [lottie](https://lottiefiles.com/) file format. Aseprite is an "animated sprite editor and pixel art tool." Lottie is a file format for animated vector graphics based on [JSON](https://en.wikipedia.org/wiki/JSON).
 
 This script has no import functionality, and no plans to ever add any.
+
+*This script was developed and tested in Aseprite version 1.3.6 on Windows 10.*
 
 Lottie is similar to [SVG](https://en.wikipedia.org/wiki/SVG). For this reason, this export works much like Aseprite's built-in SVG export for still images, or like the animated SVG export from [AsepriteAddons](https://github.com/behreajj/AsepriteAddons).
 
