@@ -39,8 +39,8 @@ local layerFillFormat <const> = table.concat({
     "\"nm\":\"%s\"",    -- Name
     "\"ks\":{}",        -- Transform
     "\"sc\":\"#%06x\"", -- Color as web hex
-    "\"sw\":%d",        -- Height
-    "\"sh\":%d}"        -- Width
+    "\"sw\":%d",        -- Width
+    "\"sh\":%d}"        -- Height
 }, ",")
 
 local flatShapeFormat <const> = table.concat({
@@ -59,6 +59,22 @@ local shapeGroupFormat <const> = table.concat({
     "\"nm\":\"%s\"",  -- Name
     "\"it\":[%s]}"    -- Sub shapes
 }, ",")
+
+-- Bezier shape format: v, i and o are required.
+-- i and o are relative to v, so set to zero for
+-- straight lines. o is fore tangent, i is rear?
+-- {
+--   "ty": "sh",
+--   "ks": {
+--     "a": 0,
+--     "k": {
+--       "c": true,
+--       "v": [[0,0], [1,0], [1,1], [0,1]],
+--       "i": [[0,0], [0,0], [0,0], [0,0]],
+--       "o": [[0,0], [0,0], [0,0], [0,0]]
+--     }
+--   }
+-- }
 
 local shapeRectFormat <const> = table.concat({
     "{\"ty\":\"rc\"",                    -- Type
