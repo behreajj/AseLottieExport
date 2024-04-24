@@ -3,8 +3,6 @@ local frameTargets <const> = { "ACTIVE", "ALL", "TAG" }
 local defaults <const> = {
     -- TODO: Allow padding between pixels?
     -- TODO: Base rounding on a pecentage, as with SVG?
-    -- TODO: Allow option to link to raster images?
-    -- TODO: Is option to embed raster images as base 64 encoded possible?
     frameTarget = "ALL",
     fps = 12,
     scale = 1,
