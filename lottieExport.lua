@@ -30,6 +30,8 @@ local transformFormat <const> = table.concat({
     "\"o\":{\"a\":0,\"k\":%d}}",          -- Opacity
 }, ",")
 
+-- Index property is needed to prevent some frames from
+-- falling beneath background layer.
 local layerFillFormat <const> = table.concat({
     "{\"ty\":1",        -- Type (1: solid color)
     "\"ind\":%d",       -- Index (starting at 0)
