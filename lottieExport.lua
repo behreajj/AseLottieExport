@@ -4,7 +4,7 @@ local shapePresets <const> = { "PATH", "RECT" }
 local defaults <const> = {
     -- TODO: Allow padding between pixels?
     -- TODO: Use AseSwatchIO tech to convert from Adobe or display to sRGB?
-    frameTarget = "ALL",
+    frameTarget = "ACTIVE",
     fps = 12,
     scale = 1,
     usePixelAspect = true,
