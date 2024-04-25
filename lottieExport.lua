@@ -1,13 +1,15 @@
 local frameTargets <const> = { "ACTIVE", "ALL", "TAG" }
+local shapePresets <const> = { "PATH", "RECT" }
 
 local defaults <const> = {
     -- TODO: Allow padding between pixels?
-    -- TODO: Base rounding on a pecentage, as with SVG?
+    -- TODO: Use AseSwatchIO tech to convert from Adobe or display to sRGB?
     frameTarget = "ALL",
     fps = 12,
     scale = 1,
     usePixelAspect = true,
-    rounding = 0
+    shapePreset = "RECT",
+    roundPercent = 0,
 }
 
 -- 5.5.1 latest possible with VS code extension
@@ -63,26 +65,40 @@ local shapeGroupFormat <const> = table.concat({
 }, ",")
 
 -- Bezier shape format: v, i and o are required.
--- i and o are relative to v, so set to zero for
--- straight lines. o is fore tangent, i is rear?
--- {
---   "ty": "sh",
---   "ks": {
---     "a": 0,
---     "k": {
---       "c": true,
---       "v": [[0,0], [1,0], [1,1], [0,1]],
---       "i": [[0,0], [0,0], [0,0], [0,0]],
---       "o": [[0,0], [0,0], [0,0], [0,0]]
---     }
---   }
--- }
+-- o is fore tangent. i is rear tangent.
+-- i and o are relative to v.
+-- v0 --> o0  i1 <-- v1
+--  |                 |
+-- \/                \/
+-- i0                o1
+--
+-- o3                 i2
+-- /\                 /\
+-- |                  |
+-- v3 --> i3  o2 <-- v2
+local bezFormat4 <const> = table.concat({
+    "{\"ty\":\"sh\"",
+    "\"ks\":{\"a\":0",
+    "\"k\":{\"c\":%s", -- isClosed
+    "\"v\":[[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f]]",
+    "\"i\":[[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f]]",
+    "\"o\":[[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f]]}}}"
+}, ",")
+
+local bezFormat8 <const> = table.concat({
+    "{\"ty\":\"sh\"",
+    "\"ks\":{\"a\":0",
+    "\"k\":{\"c\":%s", -- isClosed
+    "\"v\":[[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f]]",
+    "\"i\":[[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f]]",
+    "\"o\":[[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f]]}}}"
+}, ",")
 
 local shapeRectFormat <const> = table.concat({
     "{\"ty\":\"rc\"",                    -- Type
     "\"p\":{\"a\":0,\"k\":[%.1f,%.1f]}", -- Center
     "\"s\":{\"a\":0,\"k\":[%d,%d]}",     -- Size
-    "\"r\":{\"a\":0,\"k\":%d}}",         -- Rounding
+    "\"r\":{\"a\":0,\"k\":%.3f}}",       -- Rounding
 }, ",")
 
 local shapeFillFormat <const> = table.concat({
@@ -108,15 +124,17 @@ local function comparator(aIdx, bIdx, imgWidth)
     return (aIdx % imgWidth) < (bIdx % imgWidth)
 end
 
----@param img Image image
----@param palette Palette palette
----@param wPixel integer scale width
----@param hPixel integer scale height
----@param rounding integer pixel rounding
+---@param img Image
+---@param palette Palette
+---@param wPixel integer
+---@param hPixel integer
+---@param rounding number
+---@param useBezPath boolean
 ---@return string[]
----@return integer[]
----@return integer[][]
-local function imgToLotStr(img, palette, wPixel, hPixel, rounding)
+local function imgToLotStr(
+    img, palette,
+    wPixel, hPixel,
+    rounding, useBezPath)
     local strfmt <const> = string.format
     local floor <const> = math.floor
     local tconcat <const> = table.concat
@@ -124,6 +142,17 @@ local function imgToLotStr(img, palette, wPixel, hPixel, rounding)
     local imgSpec <const> = img.spec
     local imgWidth <const> = imgSpec.width
     local colorMode <const> = imgSpec.colorMode
+
+    local wo3 <const> = wPixel / 3.0
+    local ho3 <const> = hPixel / 3.0
+    local rk <const> = 0.55228474983079 * rounding
+    local r2 <const> = rounding + rounding
+    local xHnd <const> = (wPixel - r2) / 3.0
+    local yHnd <const> = (hPixel - r2) / 3.0
+    local wHalf <const> = wPixel * 0.5
+    local hHalf <const> = hPixel * 0.5
+    local roundLtEq0 <const> = rounding <= 0.0
+    local roundGtEq1 <const> = rounding >= math.min(wHalf, hHalf)
 
     ---@type table<integer, integer[]>
     local pixelDict <const> = {}
@@ -206,7 +235,7 @@ local function imgToLotStr(img, palette, wPixel, hPixel, rounding)
     end)
 
     ---@type string[]
-    local shapeGroupsArr = {}
+    local shapeGroupsArr <const> = {}
 
     local h = 0
     while h < lenUniques do
@@ -217,21 +246,95 @@ local function imgToLotStr(img, palette, wPixel, hPixel, rounding)
         ---@type string[]
         local subShapesArr <const> = {}
         local lenIdcs <const> = #idcs
-        local i = 0
-        while i < lenIdcs do
-            i = i + 1
-            local idx <const> = idcs[i]
-            local x <const> = idx % imgWidth
-            local y <const> = idx // imgWidth
+        if useBezPath then
+            if roundLtEq0 then
+                -- Draw squares.
+                local i = 0
+                while i < lenIdcs do
+                    i = i + 1
+                    local idx <const> = idcs[i]
+                    local x <const> = idx % imgWidth
+                    local y <const> = idx // imgWidth
 
-            local xScaled <const> = x * wPixel
-            local yScaled <const> = y * hPixel
+                    local x0 <const> = x * wPixel
+                    local y0 <const> = y * hPixel
+                    local x1 <const> = x0 + wPixel
+                    local y1 <const> = y0 + hPixel
 
-            subShapesArr[#subShapesArr + 1] = strfmt(shapeRectFormat,
-                xScaled + wPixel * 0.5,
-                yScaled + hPixel * 0.5,
-                wPixel, hPixel, rounding)
+                    local sqBezStr <const> = strfmt(bezFormat4,
+                        "true",
+                        x0, y0, x1, y0, x1, y1, x0, y1,   -- v
+                        0, ho3, -wo3, 0, 0, -ho3, wo3, 0, -- i
+                        wo3, 0, 0, ho3, -wo3, 0, 0, -ho3) -- o
+                    subShapesArr[#subShapesArr + 1] = sqBezStr
+                end
+            elseif roundGtEq1 then
+                -- Draw circles.
+                local i = 0
+                while i < lenIdcs do
+                    i = i + 1
+                    local idx <const> = idcs[i]
+                    local x <const> = idx % imgWidth
+                    local y <const> = idx // imgWidth
+
+                    local x0 <const> = x * wPixel
+                    local y0 <const> = y * hPixel
+                    local x1 <const> = x0 + wPixel
+                    local y1 <const> = y0 + hPixel
+                    local xc <const> = x0 + wHalf
+                    local yc <const> = y0 + hHalf
+
+                    local rdBezStr <const> = strfmt(bezFormat4,
+                        "true",
+                        xc, y0, x1, yc, xc, y1, x0, yc, -- v
+                        -rk, 0, 0, -rk, rk, 0, 0, rk,   -- i
+                        rk, 0, 0, rk, -rk, 0, 0, -rk)   -- o
+                    subShapesArr[#subShapesArr + 1] = rdBezStr
+                end
+            else
+                local i = 0
+                while i < lenIdcs do
+                    i = i + 1
+                    local idx <const> = idcs[i]
+                    local x <const> = idx % imgWidth
+                    local y <const> = idx // imgWidth
+
+                    local x0 <const> = x * wPixel
+                    local y0 <const> = y * hPixel
+                    local x1 <const> = x0 + wPixel
+                    local y1 <const> = y0 + hPixel
+
+                    local x0In <const> = x0 + rounding
+                    local x1In <const> = x1 - rounding
+                    local y0In <const> = y0 + rounding
+                    local y1In <const> = y1 - rounding
+
+                    local crnrBezStr <const> = strfmt(bezFormat8,
+                        "true",
+                        x0In, y0, x1In, y0, x1, y0In, x1, y1In, -- v
+                        x1In, y1, x0In, y1, x0, y1In, x0, y0In, -- v
+                        -rk, 0, -xHnd, 0, 0, -rk, 0, -yHnd,     -- i
+                        rk, 0, xHnd, 0, 0, rk, 0, yHnd,         -- i
+                        xHnd, 0, rk, 0, 0, yHnd, 0, rk,         -- o
+                        -xHnd, 0, -rk, 0, 0, -yHnd, 0, -rk)     -- o
+                    subShapesArr[#subShapesArr + 1] = crnrBezStr
+                end
+            end
+        else
+            local i = 0
+            while i < lenIdcs do
+                i = i + 1
+                local idx <const> = idcs[i]
+                local x <const> = idx % imgWidth
+                local y <const> = idx // imgWidth
+                local xc <const> = x * wPixel + wHalf
+                local yc <const> = y * hPixel + hHalf
+                local rectStr <const> = strfmt(shapeRectFormat,
+                    xc, yc, wPixel, hPixel, rounding)
+                subShapesArr[#subShapesArr + 1] = rectStr
+            end
         end
+
 
         local b8 <const> = (hex >> 0x10) & 0xff
         local g8 <const> = (hex >> 0x08) & 0xff
@@ -262,7 +365,7 @@ local function imgToLotStr(img, palette, wPixel, hPixel, rounding)
         shapeGroupsArr[#shapeGroupsArr + 1] = shapeGroup
     end
 
-    return shapeGroupsArr, hexArr, idcsArr
+    return shapeGroupsArr
 end
 
 ---@param tag Tag
@@ -369,11 +472,20 @@ dlg:check {
 dlg:newrow { always = false }
 
 dlg:slider {
-    id = "rounding",
+    id = "roundPercent",
     label = "Rounding:",
     min = 0,
-    max = 32,
-    value = defaults.rounding
+    max = 100,
+    value = defaults.roundPercent
+}
+
+dlg:newrow { always = false }
+
+dlg:combobox {
+    id = "shapePreset",
+    label = "Shape:",
+    option = defaults.shapePreset,
+    options = shapePresets
 }
 
 dlg:newrow { always = false }
@@ -452,8 +564,10 @@ dlg:button {
             or defaults.fps --[[@as integer]]
         local scale <const> = args.scale
             or defaults.scale --[[@as integer]]
-        local rounding <const> = args.rounding
-            or defaults.rounding --[[@as integer]]
+        local roundPercent <const> = args.roundPercent
+            or defaults.roundPercent --[[@as integer]]
+        local shapePreset <const> = args.shapePreset
+            or defaults.shapePreset --[[@as string]]
         local usePixelAspect <const> = args.usePixelAspect --[[@as boolean]]
         local bkgColor <const> = args.bkgColor --[[@as Color]]
 
@@ -531,12 +645,15 @@ dlg:button {
         local wSpriteScaled <const> = wSprite * wPixel
         local hSpriteScaled <const> = hSprite * hPixel
 
+        local roundFac <const> = roundPercent * 0.01
+        local shortEdge <const> = 0.5 * math.min(wPixel, hPixel)
+        local rdVerif <const> = shortEdge * roundFac
+
         ---@type string[]
         local layerStrsArr <const> = {}
-
         local palette <const> = activeSprite.palettes[1]
-
         local bkgIdxOffset <const> = bkgColor.alpha > 0 and 1 or 0
+        local useBezPath <const> = shapePreset == "PATH"
 
         local i = 0
         while i < lenChosenFrames do
@@ -561,8 +678,8 @@ dlg:button {
                 local trim <const> = Image(trimSpec)
                 trim:drawImage(flat, Point(-xtlCel, -ytlCel), 255, BlendMode.SRC)
 
-                local shapeStrArr <const>, _ <const>, _ <const> = imgToLotStr(
-                    trim, palette, wPixel, hPixel, rounding)
+                local shapeStrArr <const> = imgToLotStr(
+                    trim, palette, wPixel, hPixel, rdVerif, useBezPath)
 
                 local xtlScl <const> = xtlCel * wPixel
                 local ytlScl <const> = ytlCel * hPixel
