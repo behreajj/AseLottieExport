@@ -457,7 +457,7 @@ dlg:slider {
     id = "scale",
     label = "Scale:",
     min = 1,
-    max = 32,
+    max = 64,
     value = defaults.scale
 }
 
