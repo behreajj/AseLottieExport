@@ -89,9 +89,12 @@ local bezFormat8 <const> = table.concat({
     "{\"ty\":\"sh\"",
     "\"ks\":{\"a\":0",
     "\"k\":{\"c\":%s", -- isClosed
-    "\"v\":[[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f]]",
-    "\"i\":[[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f]]",
-    "\"o\":[[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f]]}}}"
+    "\"v\":[[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f]",
+    "[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f]]",
+    "\"i\":[[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f]",
+    "[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f]]",
+    "\"o\":[[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f]",
+    "[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f]]}}}"
 }, ",")
 
 local shapeRectFormat <const> = table.concat({
@@ -336,7 +339,6 @@ local function imgToLotStr(
             end
         end
 
-
         local b8 <const> = (hex >> 0x10) & 0xff
         local g8 <const> = (hex >> 0x08) & 0xff
         local r8 <const> = hex & 0xff
@@ -348,14 +350,12 @@ local function imgToLotStr(
             local a100 = floor((a8 / 255.0) * 100.0 + 0.5)
 
             local fillShape <const> = strfmt(shapeFillFormat,
-                a100,
-                r8 / 255.0, g8 / 255.0, b8 / 255.0)
+                a100, r8 / 255.0, g8 / 255.0, b8 / 255.0)
             subShapesArr[#subShapesArr + 1] = fillShape
 
             -- A transform shape is mandatory for a group shape to be valid!
             local transformShape <const> = strfmt(
-                shapeTransformFormat,
-                100)
+                shapeTransformFormat, 100)
             subShapesArr[#subShapesArr + 1] = transformShape
         end
 
@@ -378,6 +378,7 @@ local function tagToFrIdcs(tag)
     local origFrObj <const> = tag.fromFrame
     if not origFrObj then return {} end
 
+    -- TODO: Validate to make sure these aren't out of bounds?
     local origIdx <const> = origFrObj.frameNumber
     local destIdx <const> = destFrObj.frameNumber
     if origIdx == destIdx then return { destIdx } end
