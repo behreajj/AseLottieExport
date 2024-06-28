@@ -97,6 +97,8 @@ local bezFormat8 <const> = table.concat({
     "[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f]]}}}"
 }, ",")
 
+-- rounding property is needed, even if it is zero, for the
+-- lottie to parse correctly.
 local shapeRectFormat <const> = table.concat({
     "{\"ty\":\"rc\"",                    -- Type
     "\"p\":{\"a\":0,\"k\":[%.1f,%.1f]}", -- Center
