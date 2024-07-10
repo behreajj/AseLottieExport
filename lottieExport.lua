@@ -97,7 +97,7 @@ local bezFormat8 <const> = table.concat({
     "[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f],[%.3f,%.3f]]}}}"
 }, ",")
 
--- rounding property is needed, even if it is zero, for the
+-- Rounding property is needed, even if it is zero, for the
 -- lottie to parse correctly.
 local shapeRectFormat <const> = table.concat({
     "{\"ty\":\"rc\"",                    -- Type
@@ -135,11 +135,13 @@ end
 ---@param hPixel integer
 ---@param rounding number
 ---@param useBezPath boolean
+---@param hasBkg boolean
 ---@return string[]
 local function imgToLotStr(
     img, palette,
     wPixel, hPixel,
-    rounding, useBezPath)
+    rounding, useBezPath,
+    hasBkg)
     local strfmt <const> = string.format
     local floor <const> = math.floor
     local tconcat <const> = table.concat
@@ -170,7 +172,7 @@ local function imgToLotStr(
         local clrIdxToHex <const> = {}
         for pixel in pxItr do
             local clrIdx <const> = pixel()
-            if clrIdx ~= alphaIdx then
+            if hasBkg or clrIdx ~= alphaIdx then
                 local hex = clrIdxToHex[clrIdx]
                 if not hex then
                     local aseColor <const> = palette:getColor(clrIdx)
@@ -658,6 +660,7 @@ dlg:button {
         local palette <const> = activeSprite.palettes[1]
         local bkgIdxOffset <const> = bkgColor.alpha > 0 and 1 or 0
         local useBezPath <const> = shapePreset == "PATH"
+        local hasBkg <const> = activeSprite.backgroundLayer ~= nil
 
         local i = 0
         while i < lenChosenFrames do
@@ -683,7 +686,7 @@ dlg:button {
                 trim:drawImage(flat, Point(-xtlCel, -ytlCel), 255, BlendMode.SRC)
 
                 local shapeStrArr <const> = imgToLotStr(
-                    trim, palette, wPixel, hPixel, rdVerif, useBezPath)
+                    trim, palette, wPixel, hPixel, rdVerif, useBezPath, hasBkg)
 
                 local xtlScl <const> = xtlCel * wPixel
                 local ytlScl <const> = ytlCel * hPixel
