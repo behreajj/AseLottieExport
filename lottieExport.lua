@@ -135,13 +135,11 @@ end
 ---@param hPixel integer
 ---@param rounding number
 ---@param useBezPath boolean
----@param hasBkg boolean
 ---@return string[]
 local function imgToLotStr(
     img, palette,
     wPixel, hPixel,
-    rounding, useBezPath,
-    hasBkg)
+    rounding, useBezPath)
     local strfmt <const> = string.format
     local floor <const> = math.floor
     local tconcat <const> = table.concat
@@ -172,7 +170,7 @@ local function imgToLotStr(
         local clrIdxToHex <const> = {}
         for pixel in pxItr do
             local clrIdx <const> = pixel()
-            if hasBkg or clrIdx ~= alphaIdx then
+            if clrIdx ~= alphaIdx then
                 local hex = clrIdxToHex[clrIdx]
                 if not hex then
                     local aseColor <const> = palette:getColor(clrIdx)
@@ -660,8 +658,6 @@ dlg:button {
         local palette <const> = activeSprite.palettes[1]
         local bkgIdxOffset <const> = bkgColor.alpha > 0 and 1 or 0
         local useBezPath <const> = shapePreset == "PATH"
-        local hasBkg <const> = activeSprite.backgroundLayer ~= nil
-            and activeSprite.backgroundLayer.isVisible
 
         local i = 0
         while i < lenChosenFrames do
@@ -687,7 +683,7 @@ dlg:button {
                 trim:drawImage(flat, Point(-xtlCel, -ytlCel), 255, BlendMode.SRC)
 
                 local shapeStrArr <const> = imgToLotStr(
-                    trim, palette, wPixel, hPixel, rdVerif, useBezPath, hasBkg)
+                    trim, palette, wPixel, hPixel, rdVerif, useBezPath)
 
                 local xtlScl <const> = xtlCel * wPixel
                 local ytlScl <const> = ytlCel * hPixel
