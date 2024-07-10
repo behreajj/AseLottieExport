@@ -170,6 +170,9 @@ local function imgToLotStr(
         local clrIdxToHex <const> = {}
         for pixel in pxItr do
             local clrIdx <const> = pixel()
+            -- Do not mess around with whether a sprite has a background layer
+            -- and the alpha index is intended to be opaque. Users can either
+            -- fix their palette or include a background color manually.
             if clrIdx ~= alphaIdx then
                 local hex = clrIdxToHex[clrIdx]
                 if not hex then
