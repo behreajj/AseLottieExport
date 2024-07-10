@@ -661,6 +661,7 @@ dlg:button {
         local bkgIdxOffset <const> = bkgColor.alpha > 0 and 1 or 0
         local useBezPath <const> = shapePreset == "PATH"
         local hasBkg <const> = activeSprite.backgroundLayer ~= nil
+            and activeSprite.backgroundLayer.isVisible
 
         local i = 0
         while i < lenChosenFrames do
